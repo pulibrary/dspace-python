@@ -7,7 +7,7 @@ Python administration scripts for managing the [Princeton Plasma Physics Laborat
 ### Install and Configure the AWS CLI
 
 ```
-python -m pip install --user awscli
+python -m pip install --user awscli pathlib2
 ```
 
 Please ensure that the following configuration files are in place for AWS:

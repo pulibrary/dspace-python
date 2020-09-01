@@ -3,6 +3,10 @@ import sys
 import shutil
 import logging
 import argparse
+import pathlib2 as pathlib
+from pathlib2 import Path
+
+import pdb
 
 if len(sys.argv) < 4:
     raise Exception('Usage: dataspace_import.py $DSPACE_HOME $DSPACE_EPERSON $S3_PATH')
@@ -51,49 +55,6 @@ def _debug(pre, msg):
 
     return None
 
-def _mapfile(tgz):
-    """
-    Generate the file path for the DSpace import mapfile given a file name
-
-    Parameters
-    ----------
-    tgz : str
-        The path to the file
-
-    """
-    return '{}/imports/{}.mapfile'.format(S3_MIRROR, tgz)
-
-
-def _check_internal(file_name, s3_files):
-    """
-    Determines whether or not to import a file into DSpace given its file name.
-
-    Parameters
-    ----------
-    file_name : str
-        The path to the file
-    s3_files : list
-        An unused parameter (this should be removed)
-
-    Returns
-    -------
-    str
-        The status of the file
-
-    """
-
-    output = None
-    if file_name.endswith('.mapfile') or file_name.endswith('log') or file_name == 'imports':
-        output = INTERNAL
-    else:
-        mapfile_status = _check_mapfile(file_name)
-        if mapfile_status:
-            output = INTERNAL
-        else:
-            output = IMPORT
-
-    return output
-
 def _systm(s3_file, cmd, logfile):
     """
     Execute a command using the BASH
@@ -113,7 +74,6 @@ def _systm(s3_file, cmd, logfile):
         The return code of the command
 
     """
-    logging.info(cmd)
     with open(logfile,"a+") as f: f.write('> ' + cmd + '\n')
     rc = os.system('({}) >> {} 2>&1'.format(cmd, logfile))
 
@@ -143,70 +103,23 @@ def _unpack(s3_dir, s3_file, logfile):
     """
     try:
         segments = s3_file.split('.')
+        dirname = "{}/imports/{}".format(S3_MIRROR, segments[0])
+        # This structure is required for DSpace imports
+        item_dirname = "{}/{}".format(dirname, "item_000")
 
-        dirname = "{}/imports/{}/{}".format(S3_MIRROR, segments[0], "item_000")
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
+            os.makedirs(item_dirname)
     except Exception as error:
         logging.error(str(error))
         return _error('could not create {}'.format(dirname))
 
-    cmd = 'cd {}; tar xvfz {}/{}'.format(dirname, s3_dir, s3_file)
+    cmd = 'cd {}; tar xvfz {}/{}; cd -'.format(item_dirname, s3_dir, s3_file)
     rc = _systm(s3_file, cmd, logfile)
     if 0 == rc:
-        import_dirname = "{}/imports/{}".format(S3_MIRROR, segments[0])
-        return import_dirname
+        return Path(dirname)
     else:
         return None
-
-
-def _check_mapfile(s3_file):
-    """
-    Check the mapfile for a file which has imported into DSpace
-
-    Parameters
-    ----------
-    s3_file : str
-        The directory path for the submission information package
-
-    Returns
-    ----------
-    bool
-
-    """
-    mapfile = _mapfile(s3_file)
-    ok = (os.path.isfile(mapfile) and 0 < os.path.getsize(mapfile))
-
-    if not ok:
-        _error('broken mapfile for {}'.format(s3_file))
-
-    return ok
-
-# This is no longer used
-def _cleanup_dir(dirname):
-    dirname = str(dirname)
-
-    if dirname:
-        if os.path.exists(dirname):
-            shutil.rmtree(dirname)
-            logging.info('rmtree ' + dirname)
-        else:
-            logging.error('directory "{}" does not exist'.format(dirname))
-
-
-def _cleanup_file(fname):
-    """
-    Delete a file
-
-    Parameters
-    ----------
-    fname : str
-        The directory path for the S3 synchronization
-    """
-
-    if os.path.exists(fname):
-        os.remove(fname)
-        logging.info('rmfile ' + fname)
 
 def _import(s3_mirror, log, submitter, s3_file, service):
     """
@@ -228,31 +141,33 @@ def _import(s3_mirror, log, submitter, s3_file, service):
 
     success = False
     unpacked_dir = None
-    mapfile = _mapfile(s3_file)
+    s3_file_path = Path(s3_file)
 
-    if os.path.exists(mapfile):
-        _cleanup_file(mapfile)
+    mapfile_path = service.build_mapfile_path(s3_file_path)
+    if mapfile_path.exists():
+        service.logger.info('Removing the empty mapfile {}'.format(mapfile_path))
+        mapfile_path.unlink()
 
+    logfile = service._logfile(s3_file)
     try:
-        logfile = service._logfile(s3_file)
-        logging.info('logging {} import to {}'.format(s3_file, logfile))
-        unpacked_dir = _unpack(service.s3_mirror, s3_file, logfile)
+        decompressed_dir_path = _unpack(service.s3_mirror, s3_file, logfile)
 
-        if unpacked_dir:
-            cmd = _dataspace_import_cmd(unpacked_dir, service.submitter, mapfile)
+        if decompressed_dir_path.exists():
+            cmd = service._dataspace_import_cmd(decompressed_dir_path, mapfile_path)
+
             rc = _systm(s3_file, cmd, logfile)
-            success = rc == 0 and _check_mapfile(s3_file)
+            success = rc == 0 and service.isarchived(s3_file_path)
     except:
         pass
 
     success_state = 'SUCCESS' if success else 'FAILURE'
-    logging.info('{} {}'.format(s3_file, success_state))
+    service.logger.info('Import status for {}: {}'.format(s3_file, success_state))
     if not success:
         logging.info('Please check the logging entries in {}'.format(logfile))
 
     logging.info('----')
 
-def _work_sips(s3_mirror, log, submitter):
+def _work_sips(service):
     """
     Imports the S3 data sets into a DSpace installation
 
@@ -260,7 +175,7 @@ def _work_sips(s3_mirror, log, submitter):
     ----------
     s3_mirror : str
         The directory path for the S3 synchronization
-    log : Foo
+    log : Logger
         The system logger
     submitter : str
         The e-mail address for the DSpace user importing the data sets
@@ -268,23 +183,42 @@ def _work_sips(s3_mirror, log, submitter):
     """
     logging.info('SETUP local-bucket-mirror:  {}'.format(service.s3_mirror))
     logging.info('SETUP log-directory:  {}'.format(service.log))
-    logging.info('SETUP submitter:  {}'.format(service.submitter))
+    logging.info('SETUP submitter:  {}'.format(service.eperson))
 
     s3_files = os.listdir(service.s3_mirror)
     s3_file_batch_size = len(s3_files)
     for s3_file in s3_files:
-        status = _check_internal(s3_file, s3_files)
+        s3_file_path = pathlib.Path(s3_file)
 
-        if (status != INTERNAL):
-            _debug(s3_file, str(status))
-
-            if (status == IMPORT):
-                _import(service.s3_mirror, service.log, service.submitter, s3_file, service)
+        if (ImporterService.isarchivepath(s3_file_path) and not service.isarchived(s3_file_path)):
+            service.logger.info("Importing {}".format(s3_file_path))
+            _import(service.s3_mirror, service.log, service.eperson, s3_file, service)
 
     return _nerror
 
 class ImporterService:
-    def _dataspace_import_cmd(sip_dir, submitter, mapfile, service):
+    # This needs to be refactored
+    @classmethod
+    def aws_s3_path(cls):
+        return S3_MIRROR
+
+    @classmethod
+    def isarchivepath(cls, file_path):
+        return file_path.suffix == '.tgz'
+
+    def build_mapfile_path(self, archive_path):
+        mapfile_name = "{}.mapfile".format(archive_path.name)
+        path = Path(self.aws_s3_path, 'imports', mapfile_name)
+
+        return path
+
+    def isarchived(self, file_path):
+        mapfile_path = self.build_mapfile_path(file_path)
+        status = mapfile_path.exists() and mapfile_path.stat().st_size > 0
+
+        return status
+
+    def _dataspace_import_cmd(self, sip_dir, mapfile):
         """
         Import a directory into DataSpace
 
@@ -298,12 +232,13 @@ class ImporterService:
             The file path to the DSpace import mapfile
         """
 
-        import_cmd = '{}/bin/dspace import --add --workflow -notify  -e {} --mapfile {} -s {} '
-        import_cmd = import_cmd.format(service.dspace_home, submitter, mapfile, sip_dir)
+        import_cmd = '{}/bin/dspace import --add --workflow --eperson {} --mapfile {} --source {}'
+        cmd = import_cmd.format(self.dspace_home, self.eperson, mapfile, sip_dir)
+        self.logger.info(cmd)
 
-        return import_cmd
+        return cmd
 
-    def _logfile(tgz):
+    def _logfile(self, tgz):
         """
         Generate the file path for the DSpace import log file given a file name
 
@@ -316,15 +251,17 @@ class ImporterService:
         return '{}/imports/{}.log'.format(self.s3_mirror, tgz)
 
     def configure_logging(self):
-        if self.args.verbose > 1:
-            logger_level = logging.DEBUG
-        elif self.args.verbose == 1:
-            logger_level = logging.INFO
-        else:
-            logger_level = logging.WARNING
+        #if self.args.verbose > 1:
+        #    logger_level = logging.DEBUG
+        #elif self.args.verbose == 1:
+        #    logger_level = logging.INFO
+        #else:
+        #    logger_level = logging.WARNING
+
+        logger_level = logging.DEBUG
 
         logger = logging.getLogger()
-        logger.setLevel(logging_level)
+        logger.setLevel(logger_level)
 
         self.logger = logger
         return self.logger
@@ -341,14 +278,17 @@ class ImporterService:
         self.args = args
         return self.args
 
-    def __init__(self, s3_mirror, eperson):
+    def __init__(self, dspace_home, s3_mirror, eperson):
+        self.dspace_home = dspace_home
+        # This attribute should be renamed
         self.s3_mirror = s3_mirror
+        self.aws_s3_path = self.s3_mirror
         self.eperson = eperson
         self.log = '{}/log'.format(self.s3_mirror)
 
-if __name__=="__main__": 
-    service = ImporterService(s3_mirror)
-    service.parse_args()
+if __name__=="__main__":
+    service = ImporterService(DSPACE_HOME, S3_MIRROR, SUBMITTER)
+    # service.parse_args()
     service.configure_logging()
 
     s3_file_batch_size = 0
@@ -356,7 +296,7 @@ if __name__=="__main__":
 
     exit_code = _work_sips(service)
     if exit_code == 0:
-        service.logging.info('SUCCESS all packages imported')
+        service.logger.info('SUCCESS all packages imported')
         sys.exit(0)
     else:
         _error('failed to import {} packages'.format(s3_file_batch_size))
