@@ -30,8 +30,8 @@ touch $IMPORT_LOG_FILE
 
 # This synchronizes from S3 to the local file system
 echo  "Logging to $IMPORT_LOG_FILE"
-echo "aws s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE"
-aws s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE
+echo "aws --debug s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE"
+aws --debug s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE
 
 # This uploads any new SIPs
 fgrep 'Download:' $IMPORT_LOG_FILE >> /dev/null
@@ -46,14 +46,14 @@ if [[ $status -eq 0 ]]; then
 fi
 
 # This synchronizes from the local file system to S3
-echo "aws s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE"
-aws s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE
+echo "aws --debug s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE"
+aws --debug s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE
 
 if [ -e $IMPORT_LOG_FILE ]; then
   echo "Warning: $IMPORT_LOG_FILE is empty"
 else
-  echo "aws s3 sync $DSPACE_AWS_S3/log s3://$AWS_BUCKET/log"
-  aws s3 sync $DSPACE_AWS_S3/log s3://$AWS_BUCKET/log
+  echo "aws --debug s3 sync $DSPACE_AWS_S3/log s3://$AWS_BUCKET/log"
+  aws --debug s3 sync $DSPACE_AWS_S3/log s3://$AWS_BUCKET/log
   echo "---"
   cat $IMPORT_LOG_FILE
 fi
