@@ -25,6 +25,15 @@ $ cat $HOME/.aws/config
 [default]
 ```
 
+Alternatively, should access fail, please explicitly declare the BASH
+environment variables:
+
+```
+export AWS_ACCESS_KEY_ID=[KEY_ID]
+export AWS_SECRET_ACCESS_KEY=[SECRET_ACCESS_KEY]
+export AWS_DEFAULT_REGION=us-east-1
+```
+
 ### Clone the repository
 
 ```
