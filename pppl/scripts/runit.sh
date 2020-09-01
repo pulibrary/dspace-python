@@ -1,6 +1,24 @@
 #!/bin/bash
 
+if [ -z "$DSPACE_PPPL_HOME" ]; then
+  echo '$DSPACE_PPPL_HOME needs to be declared'
+  exit 1
+fi
+if [ -z "$DSPACE_AWS_S3" ]; then
+  echo '$DSPACE_AWS_S3 needs to be declared'
+  exit 1
+fi
+if [ -z "$AWS_BUCKET" ]; then
+  echo '$AWS_BUCKET needs to be declared'
+  exit 1
+fi
+if [ -z "$DSPACE_EPERSON" ]; then
+  echo '$DSPACE_EPERSON needs to be declared'
+  exit 1
+fi
+
 export DATASPACE_IMPORT=$DSPACE_PPPL_HOME/dataspace_import.py
+
 export S3_LOGDIR=$DSPACE_AWS_S3/log
 export DATE=`date "+%Y/%m"`
 export LONG_DATE=`date "+%Y-%m-%d:%H:%M"`

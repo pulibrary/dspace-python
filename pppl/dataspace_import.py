@@ -182,6 +182,7 @@ def _check_mapfile(s3_file):
 
     return ok
 
+# This is no longer used
 def _cleanup_dir(dirname):
     dirname = str(dirname)
 

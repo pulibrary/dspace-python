@@ -2,13 +2,13 @@
 
 # . cronrc
 
-export DSPACE_PPPL_HOME=$HOME/pulibrary-src/pppl
+export DSPACE_PPPL_HOME=$HOME/pulibrary-src/dspace-python/pppl
 export DSPACE_AWS_S3=$DSPACE_PPPL_HOME/s3
 export AWS_BUCKET=pppldataspace
-
 export DSPACE_EPERSON="pppldataspace@princeton.edu"
-export ERROR_EMAIL_TO="jrg5@princeton.edu"
+
 export LOG_LEVEL=DEBUG
+export ERROR_EMAIL_TO="jrg5@princeton.edu"
 
 source $DSPACE_PPPL_HOME/scripts/runit.sh
 if [ "$?" != 0 ]; then
