@@ -1,2 +1,5 @@
 build/doctrees
 build/html
+
+pppl/s3
+!pppl/s3/.keep
