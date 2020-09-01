@@ -20,9 +20,5 @@ aws s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE
 echo "python $DATASPACE_IMPORT $DSPACE_HOME $DSPACE_EPERSON $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE"
 python $DATASPACE_IMPORT $DSPACE_HOME $DSPACE_EPERSON $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE
 
-# This synchronizes from the local file system to S3
-# echo "aws s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE"
-# aws s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE
-
 echo "---"
 cat $IMPORT_LOG_FILE

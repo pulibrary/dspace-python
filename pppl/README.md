@@ -45,5 +45,13 @@ $ cd dspace-python/pppl
 ## Pulling Submission Information Packages (SIPs) from the PPPL
 
 ```
-python dataspace_import.py $DSPACE_HOME $DSPACE_EPERSON $DSPACE_AWS_S3
+export DSPACE_HOME=/dspace
+source scripts/pppl_pull.sh
 ```
+
+## Synchronizing the DSpace import logs and mapfiles to the AWS S3 Bucket
+
+```
+source scripts/sync_to_aws_s3.sh
+```
+
