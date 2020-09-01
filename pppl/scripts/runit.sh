@@ -34,16 +34,8 @@ echo "aws --debug s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE"
 aws --debug s3 sync s3://$AWS_BUCKET $DSPACE_AWS_S3 >> $IMPORT_LOG_FILE
 
 # This uploads any new SIPs
-fgrep 'Download:' $IMPORT_LOG_FILE >> /dev/null
-if [ $? == 0 ]; then
-  echo "python $DATASPACE_IMPORT $DSPACE_AWS_S3 $DSPACE_EPERSON >> $IMPORT_LOG_FILE"
-  python $DATASPACE_IMPORT $DSPACE_AWS_S3 $DSPACE_EPERSON >> $IMPORT_LOG_FILE
-fi
-
-fgrep 'Download failed:' $IMPORT_LOG_FILE >> /dev/null
-if [[ $status -eq 0 ]]; then
-  echo "FAILURE to sync s3 bucket" >> $IMPORT_LOG_FILE
-fi
+echo "python $DATASPACE_IMPORT $DSPACE_AWS_S3 $DSPACE_EPERSON >> $IMPORT_LOG_FILE"
+python $DATASPACE_IMPORT $DSPACE_AWS_S3 $DSPACE_EPERSON >> $IMPORT_LOG_FILE
 
 # This synchronizes from the local file system to S3
 echo "aws --debug s3 sync $DSPACE_AWS_S3/imports s3://$AWS_BUCKET/imports >> $IMPORT_LOG_FILE"
